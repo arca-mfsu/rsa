@@ -8,99 +8,85 @@
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
-            padding: 20px;
-            line-height: 1.6;
-        }
-        input, button {
-            padding: 8px;
-            margin: 5px 0;
         }
         .output {
             margin-top: 20px;
             padding: 10px;
             border: 1px solid #ccc;
+            background-color: #f9f9f9;
         }
     </style>
 </head>
 <body>
     <h1>RSA Calculator</h1>
-    <form id="rsaForm" onsubmit="generateRSA(event)">
-        <label for="p">Enter prime number \(p\):</label><br>
-        <input type="number" id="p" required><br>
+    <button onclick="generateKeys(1024)">Generate RSA-1024 Keys</button>
+    <button onclick="generateKeys(2048)">Generate RSA-2048 Keys</button>
 
-        <label for="q">Enter prime number \(q\):</label><br>
-        <input type="number" id="q" required><br>
+    <h2>Public Key:</h2>
+    <pre id="publicKeyOutput"></pre>
 
-        <label for="message">Message (as a number):</label><br>
-        <input type="number" id="message" required><br>
-
-        <button type="submit">Calculate</button>
+    <h2>Encrypt Message</h2>
+    <form id="encryptForm" onsubmit="encryptMessage(event)">
+        <label for="message">Message:</label><br>
+        <input type="text" id="message" required><br>
+        <button type="submit">Encrypt</button>
     </form>
+    <div class="output" id="encryptedOutput"></div>
 
-    <div class="output" id="output"></div>
+    <h2>Decrypt Message</h2>
+    <form id="decryptForm" onsubmit="decryptMessage(event)">
+        <label for="encryptedMessage">Encrypted Message:</label><br>
+        <textarea id="encryptedMessage" rows="5" cols="50" required></textarea><br>
+        <button type="submit">Decrypt</button>
+    </form>
+    <div class="output" id="decryptedOutput"></div>
 
     <script>
-        // Function to calculate gcd
-        function gcd(a, b) {
-            while (b !== 0) {
-                [a, b] = [b, a % b];
+        async function generateKeys(keySize) {
+            const response = await fetch('/generate-keys', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keySize }),
+            });
+            const data = await response.json();
+            if (data.error) {
+                alert(data.error);
+            } else {
+                document.getElementById('publicKeyOutput').textContent = data.publicKey;
             }
-            return a;
         }
 
-        // Function to calculate modular inverse
-        function modInverse(e, phi) {
-            let [a, b, u] = [0, phi, 1];
-            while (e > 0) {
-                let q = Math.floor(b / e);
-                [a, b, e, u] = [u, e, b % e, a - q * u];
-            }
-            return a < 0 ? a + phi : a;
-        }
-
-        function generateRSA(event) {
+        async function encryptMessage(event) {
             event.preventDefault();
-
-            // Get inputs
-            const p = parseInt(document.getElementById('p').value);
-            const q = parseInt(document.getElementById('q').value);
-            const message = parseInt(document.getElementById('message').value);
-
-            if (p <= 1 || q <= 1 || p === q) {
-                document.getElementById('output').innerText = "Both p and q must be prime numbers and not equal.";
-                return;
+            const message = document.getElementById('message').value;
+            const response = await fetch('/encrypt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message }),
+            });
+            const data = await response.json();
+            if (data.error) {
+                alert(data.error);
+            } else {
+                document.getElementById('encryptedOutput').textContent = `Encrypted: ${data.encrypted}`;
+                document.getElementById('encryptedMessage').value = data.encrypted;
             }
+        }
 
-            // RSA calculations
-            const n = p * q;
-            const phi = (p - 1) * (q - 1);
-
-            // Choose e such that 1 < e < phi and gcd(e, phi) = 1
-            let e = 3;
-            while (gcd(e, phi) !== 1) {
-                e++;
+        async function decryptMessage(event) {
+            event.preventDefault();
+            const encryptedMessage = document.getElementById('encryptedMessage').value;
+            const response = await fetch('/decrypt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ encrypted: encryptedMessage }),
+            });
+            const data = await response.json();
+            if (data.error) {
+                alert(data.error);
+            } else {
+                document.getElementById('decryptedOutput').textContent = `Decrypted: ${data.decrypted}`;
             }
-
-            // Calculate d, the modular inverse of e mod phi
-            const d = modInverse(e, phi);
-
-            // Encrypt the message
-            const encrypted = Math.pow(message, e) % n;
-
-            // Decrypt the message
-            const decrypted = Math.pow(encrypted, d) % n;
-
-            // Display results
-            document.getElementById('output').innerHTML = `
-                <strong>RSA Key Generation:</strong><br>
-                Public Key (n, e): (${n}, ${e})<br>
-                Private Key (n, d): (${n}, ${d})<br>
-                <br>
-                <strong>Message Encryption:</strong><br>
-                Original Message: ${message}<br>
-                Encrypted Message: ${encrypted}<br>
-                Decrypted Message: ${decrypted}
-            `;
         }
     </script>
 </body>
