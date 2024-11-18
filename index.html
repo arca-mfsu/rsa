@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RSA Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        input, button {
+            padding: 8px;
+            margin: 5px 0;
+        }
+        .output {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <h1>RSA Calculator</h1>
+    <form id="rsaForm" onsubmit="generateRSA(event)">
+        <label for="p">Enter prime number \(p\):</label><br>
+        <input type="number" id="p" required><br>
+
+        <label for="q">Enter prime number \(q\):</label><br>
+        <input type="number" id="q" required><br>
+
+        <label for="message">Message (as a number):</label><br>
+        <input type="number" id="message" required><br>
+
+        <button type="submit">Calculate</button>
+    </form>
+
+    <div class="output" id="output"></div>
+
+    <script>
+        // Function to calculate gcd
+        function gcd(a, b) {
+            while (b !== 0) {
+                [a, b] = [b, a % b];
+            }
+            return a;
+        }
+
+        // Function to calculate modular inverse
+        function modInverse(e, phi) {
+            let [a, b, u] = [0, phi, 1];
+            while (e > 0) {
+                let q = Math.floor(b / e);
+                [a, b, e, u] = [u, e, b % e, a - q * u];
+            }
+            return a < 0 ? a + phi : a;
+        }
+
+        function generateRSA(event) {
+            event.preventDefault();
+
+            // Get inputs
+            const p = parseInt(document.getElementById('p').value);
+            const q = parseInt(document.getElementById('q').value);
+            const message = parseInt(document.getElementById('message').value);
+
+            if (p <= 1 || q <= 1 || p === q) {
+                document.getElementById('output').innerText = "Both p and q must be prime numbers and not equal.";
+                return;
+            }
+
+            // RSA calculations
+            const n = p * q;
+            const phi = (p - 1) * (q - 1);
+
+            // Choose e such that 1 < e < phi and gcd(e, phi) = 1
+            let e = 3;
+            while (gcd(e, phi) !== 1) {
+                e++;
+            }
+
+            // Calculate d, the modular inverse of e mod phi
+            const d = modInverse(e, phi);
+
+            // Encrypt the message
+            const encrypted = Math.pow(message, e) % n;
+
+            // Decrypt the message
+            const decrypted = Math.pow(encrypted, d) % n;
+
+            // Display results
+            document.getElementById('output').innerHTML = `
+                <strong>RSA Key Generation:</strong><br>
+                Public Key (n, e): (${n}, ${e})<br>
+                Private Key (n, d): (${n}, ${d})<br>
+                <br>
+                <strong>Message Encryption:</strong><br>
+                Original Message: ${message}<br>
+                Encrypted Message: ${encrypted}<br>
+                Decrypted Message: ${decrypted}
+            `;
+        }
+    </script>
+</body>
+</html>
