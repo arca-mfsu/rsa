@@ -50,7 +50,7 @@
 
             // Export public key to PEM format
             const exportedPublicKey = await window.crypto.subtle.exportKey("spki", publicKey);
-            const exportedPrivateKey = await window.crypto.subtle.exportKey("spki", privateKey);
+            const exportedPrivateKey = await window.crypto.subtle.exportKey("pkcs8", privateKey);
             document.getElementById("publicKey").value = arrayBufferToPem(exportedPublicKey, "/pending.html#");
 
             document.getElementById("privateKey").value = arrayBufferToPem(exportedPrivateKey, "/pending.html#");
