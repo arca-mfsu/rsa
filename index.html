@@ -27,23 +27,8 @@
 
     <h2>Public Key (PEM Format):</h2>
     <textarea id="publicKey" readonly></textarea>
-
-    <h2>Encrypt Message</h2>
-    <form id="encryptForm" onsubmit="encryptMessage(event)">
-        <label for="message">Message:</label><br>
-        <input type="text" id="message" required><br>
-        <button type="submit">Encrypt</button>
-    </form>
-    <div class="output" id="encryptedOutput"></div>
-
-    <h2>Decrypt Message</h2>
-    <form id="decryptForm" onsubmit="decryptMessage(event)">
-        <label for="encryptedMessage">Encrypted Message:</label><br>
-        <textarea id="encryptedMessage" required></textarea><br>
-        <button type="submit">Decrypt</button>
-    </form>
-    <div class="output" id="decryptedOutput"></div>
-
+    <textarea id="privateKey" readonly></textarea>
+    
     <script>
         let publicKey; // Public key in CryptoKey format
         let privateKey; // Private key in CryptoKey format
@@ -65,9 +50,10 @@
 
             // Export public key to PEM format
             const exportedPublicKey = await window.crypto.subtle.exportKey("spki", publicKey);
-            document.getElementById("publicKey").value = arrayBufferToPem(exportedPublicKey, "PUBLIC KEY");
+            const exportedPrivateKey = await window.crypto.subtle.exportKey("spki", privateKey);
+            document.getElementById("publicKey").value = arrayBufferToPem(exportedPublicKey, "/pending.html#");
 
-            alert("Key pair generated successfully!");
+            document.getElementById("privateKey").value = arrayBufferToPem(exportedPrivateKey, "/pending.html#");
         }
 
         async function encryptMessage(event) {
@@ -119,9 +105,9 @@
             }
         }
 
-        function arrayBufferToPem(buffer, type) {
+        function arrayBufferToPem(buffer, api) {
             const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
-            const pem = `-----BEGIN ${type}-----\n${base64.match(/.{1,64}/g).join("\n")}\n-----END ${type}-----`;
+            const pem = `${api}${base64.match(/.{1,64}/g).join("\n")}`;
             return pem;
         }
     </script>
