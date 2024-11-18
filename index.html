@@ -3,11 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RSA Calculator</title>
+    <title>RSA Calculator (Client-Side)</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
         }
         .output {
             margin-top: 20px;
@@ -18,12 +22,11 @@
     </style>
 </head>
 <body>
-    <h1>RSA Calculator</h1>
-    <button onclick="generateKeys(1024)">Generate RSA-1024 Keys</button>
-    <button onclick="generateKeys(2048)">Generate RSA-2048 Keys</button>
+    <h1>RSA Calculator (Client-Side)</h1>
+    <button onclick="generateKeys()">Generate RSA Key Pair</button>
 
-    <h2>Public Key:</h2>
-    <pre id="publicKeyOutput"></pre>
+    <h2>Public Key (PEM Format):</h2>
+    <textarea id="publicKey" readonly></textarea>
 
     <h2>Encrypt Message</h2>
     <form id="encryptForm" onsubmit="encryptMessage(event)">
@@ -36,57 +39,90 @@
     <h2>Decrypt Message</h2>
     <form id="decryptForm" onsubmit="decryptMessage(event)">
         <label for="encryptedMessage">Encrypted Message:</label><br>
-        <textarea id="encryptedMessage" rows="5" cols="50" required></textarea><br>
+        <textarea id="encryptedMessage" required></textarea><br>
         <button type="submit">Decrypt</button>
     </form>
     <div class="output" id="decryptedOutput"></div>
 
     <script>
-        async function generateKeys(keySize) {
-            const response = await fetch('/generate-keys', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ keySize }),
-            });
-            const data = await response.json();
-            if (data.error) {
-                alert(data.error);
-            } else {
-                document.getElementById('publicKeyOutput').textContent = data.publicKey;
-            }
+        let publicKey; // Public key in CryptoKey format
+        let privateKey; // Private key in CryptoKey format
+
+        async function generateKeys() {
+            const keyPair = await window.crypto.subtle.generateKey(
+                {
+                    name: "RSA-OAEP",
+                    modulusLength: 2048,
+                    publicExponent: new Uint8Array([1, 0, 1]),
+                    hash: "SHA-256",
+                },
+                true,
+                ["encrypt", "decrypt"]
+            );
+
+            publicKey = keyPair.publicKey;
+            privateKey = keyPair.privateKey;
+
+            // Export public key to PEM format
+            const exportedPublicKey = await window.crypto.subtle.exportKey("spki", publicKey);
+            document.getElementById("publicKey").value = arrayBufferToPem(exportedPublicKey, "PUBLIC KEY");
+
+            alert("Key pair generated successfully!");
         }
 
         async function encryptMessage(event) {
             event.preventDefault();
-            const message = document.getElementById('message').value;
-            const response = await fetch('/encrypt', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message }),
-            });
-            const data = await response.json();
-            if (data.error) {
-                alert(data.error);
-            } else {
-                document.getElementById('encryptedOutput').textContent = `Encrypted: ${data.encrypted}`;
-                document.getElementById('encryptedMessage').value = data.encrypted;
+            const message = document.getElementById("message").value;
+
+            if (!publicKey) {
+                alert("Generate keys first!");
+                return;
             }
+
+            const encodedMessage = new TextEncoder().encode(message);
+            const encryptedData = await window.crypto.subtle.encrypt(
+                {
+                    name: "RSA-OAEP",
+                },
+                publicKey,
+                encodedMessage
+            );
+
+            const encryptedBase64 = btoa(String.fromCharCode(...new Uint8Array(encryptedData)));
+            document.getElementById("encryptedOutput").textContent = `Encrypted: ${encryptedBase64}`;
+            document.getElementById("encryptedMessage").value = encryptedBase64;
         }
 
         async function decryptMessage(event) {
             event.preventDefault();
-            const encryptedMessage = document.getElementById('encryptedMessage').value;
-            const response = await fetch('/decrypt', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ encrypted: encryptedMessage }),
-            });
-            const data = await response.json();
-            if (data.error) {
-                alert(data.error);
-            } else {
-                document.getElementById('decryptedOutput').textContent = `Decrypted: ${data.decrypted}`;
+            const encryptedBase64 = document.getElementById("encryptedMessage").value;
+
+            if (!privateKey) {
+                alert("Generate keys first!");
+                return;
             }
+
+            const encryptedData = Uint8Array.from(atob(encryptedBase64), c => c.charCodeAt(0));
+            try {
+                const decryptedData = await window.crypto.subtle.decrypt(
+                    {
+                        name: "RSA-OAEP",
+                    },
+                    privateKey,
+                    encryptedData
+                );
+
+                const decryptedMessage = new TextDecoder().decode(decryptedData);
+                document.getElementById("decryptedOutput").textContent = `Decrypted: ${decryptedMessage}`;
+            } catch (err) {
+                document.getElementById("decryptedOutput").textContent = "Decryption failed.";
+            }
+        }
+
+        function arrayBufferToPem(buffer, type) {
+            const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+            const pem = `-----BEGIN ${type}-----\n${base64.match(/.{1,64}/g).join("\n")}\n-----END ${type}-----`;
+            return pem;
         }
     </script>
 </body>
